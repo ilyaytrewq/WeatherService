@@ -99,7 +99,7 @@ func main() {
 				cancel()
 				if err != nil {
 					log.Printf("worker %d: send mail failed for %s: %v", id, t.To, err)
-					d.Nack(false, true) // повторим сообщение
+					d.Nack(true, false)
 					continue
 				}
 				d.Ack(false)
