@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:17.5
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    env_file:
+      - env_files/postgresql.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    env_file:
+      - env_files/clickhouse.env
+    volumes:
+      - clickhouse:/var/lib/clickhouse
+    cap_add:
+      - SYS_NICE
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "logs", "--password", "logs", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
+      
+  rabbit:
+    image: rabbitmq:3-management
+    env_file:
+      - env_files/rabbit.env
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+
+  weather_service:
+    build:
+      context: .
+    ports:
+      - '8080:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      rabbit:
+        condition: service_healthy
+    env_file:
+      - env_files/weather_service.env
+  smtp_service:
+    build: ./smtp_service
+    env_file:
+      - env_files/smtp_service.env
+
+    depends_on:
+      rabbit:
+        condition: service_healthy
+
+volumes:
+  postgres:
+    driver: local
+  clickhouse:
+    driver: local
